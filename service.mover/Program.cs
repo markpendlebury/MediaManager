@@ -6,6 +6,8 @@ using Serilog;
 using Serilog.Events;
 using service.mover.core;
 using service.mover.core.models;
+using service.mover.Factories;
+using service.mover.Helpers;
 
 namespace service.mover
 {
@@ -18,14 +20,15 @@ namespace service.mover
             {
                 var serviceCollection = new ServiceCollection();
                 ConfigureServices(serviceCollection);
-                var serviceProvider = new ServiceCollection().BuildServiceProvider();
-
+                var serviceProvider = serviceCollection.BuildServiceProvider();
                 BuildLogger();
-                Worker worker = new Worker(configuration);
+                
+                Worker worker = serviceProvider.GetService<Worker>();
                 while(true)
                 {
                     worker.DoWork();
-                    Thread.Sleep(TimeSpan.FromMinutes(configuration.Sleep));
+                    Environment.Exit(1);
+                    // Thread.Sleep(TimeSpan.FromMinutes(configuration.Sleep));
                 }
             }
             catch (Exception ex)
@@ -47,7 +50,11 @@ namespace service.mover
 
         private static void ConfigureServices(ServiceCollection serviceCollection)
         {
+            serviceCollection.AddTransient<Worker>();
             serviceCollection.AddSingleton<Configuration>();
+            serviceCollection.AddTransient<StorageFactory>();
+            serviceCollection.AddTransient<Helper>();
+
         }
     }
 }
