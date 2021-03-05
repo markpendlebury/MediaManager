@@ -30,7 +30,6 @@ namespace service.mover.core
         {
             try
             {
-                // List<Show> existingShows = storageFactory.GetExistingShows();
                 List<CompletedShow> completedShows = storageFactory.GetCompletedShows();
 
 
@@ -45,8 +44,46 @@ namespace service.mover.core
                     {
                         case true:
                             {
-                                // Todo: Implement handling of archived media
-                                break;
+                                using (var archive = RarArchive.Open(completedShow.FullPath))
+                                {
+                                    foreach (var entry in archive.Entries.Where(entry => !entry.IsDirectory))
+                                    {
+
+                                        if (helper.IsInterestingFile(entry.Key))
+                                        {
+                                            string showDirectory = configuration.ShowsDirectory + "/" + completedShow.Title;
+                                            string seasonDirectory = showDirectory + "/Season " + completedShow.SeasonNumber.ToLower().Replace("s", "").Trim();
+
+                                            // Does this file exist?
+                                            FileInfo fileInfo = new FileInfo(seasonDirectory + "/" + completedShow.ExpectedFilename);
+
+                                            if (!fileInfo.Exists)
+                                            {
+                                                if (!Directory.Exists(showDirectory))
+                                                {
+                                                    Directory.CreateDirectory(showDirectory);
+                                                }
+
+                                                if (!Directory.Exists(seasonDirectory))
+                                                {
+                                                    Directory.CreateDirectory(seasonDirectory);
+                                                }
+
+                                                Log.Information($"[{progress}/{totalShows}] Extracting {completedShow.Filename} => {seasonDirectory + "/"}");
+
+                                                entry.WriteToDirectory(seasonDirectory + "/", new ExtractionOptions()
+                                                {
+                                                    ExtractFullPath = false,
+                                                    Overwrite = true
+                                                });
+
+                                                Log.Information($"[{progress}/{totalShows}] Renaming {completedShow.Filename} => {seasonDirectory + "/" + completedShow.ExpectedFilename}");
+                                                File.Move(seasonDirectory + "/" + entry.Key, seasonDirectory + "/" + completedShow.ExpectedFilename);
+                                            }
+                                        }
+                                    }
+                                    break;
+                                }
                             }
                         case false:
                             {
@@ -58,18 +95,18 @@ namespace service.mover.core
 
                                 if (!fileInfo.Exists)
                                 {
-                                    if(!Directory.Exists(showDirectory))
+                                    if (!Directory.Exists(showDirectory))
                                     {
                                         Directory.CreateDirectory(showDirectory);
                                     }
 
-                                    if(!Directory.Exists(seasonDirectory))
+                                    if (!Directory.Exists(seasonDirectory))
                                     {
                                         Directory.CreateDirectory(seasonDirectory);
                                     }
 
                                     Log.Information($"[{progress}/{totalShows}] Moving {completedShow.Filename} => {seasonDirectory + "/" + completedShow.ExpectedFilename}");
-                                    
+
                                     File.Copy(completedShow.FullPath, seasonDirectory + "/" + completedShow.ExpectedFilename);
 
                                     Log.Information($"Done!");
